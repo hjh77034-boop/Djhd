@@ -1,0 +1,136 @@
+-- Blade Ball | FIXED - يشتغل على كل الاجهزة
+-- حماية خفيفة ما تخرب السكربت
+
+pcall(function()
+    -- حماية بسيطة تشتغل حتى على الجوال
+    local mt = getrawmetatable(game)
+    if mt then
+        setreadonly(mt, false)
+        local old = mt.__namecall
+        mt.__namecall = newcclosure(function(self, ...)
+            local m = getnamecallmethod()
+            if m == "Kick" or m == "kick" then
+                warn("بلوك طرد")
+                return nil
+            end
+            return old(self, ...)
+        end)
+        setreadonly(mt, true)
+        print("✅ Anti-Kick شغال")
+    end
+end)
+
+-- اذا الحماية ما اشتغلت، السكربت يكمل عادي ما يوقف
+print("جاي يحمل الباري...")
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Blade Ball | FIXED",
+   LoadingTitle = "جاي يحمل...",
+   LoadingSubtitle = "نسخة تصلح للجوال",
+   ConfigurationSaving = { Enabled = false }
+})
+
+local MainTab = Window:CreateTab("Auto Parry", 4483362458)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local Enabled = true
+local hasParried = false
+local lastParryTime = 0
+
+MainTab:CreateSection("الوحش - شغال")
+
+local Toggle = MainTab:CreateToggle({
+   Name = "تشغيل الاوتو باري",
+   CurrentValue = true,
+   Flag = "Ultra",
+   Callback = function(Value) Enabled = Value end,
+})
+
+local StatusLabel = MainTab:CreateLabel("الحالة: جاهز")
+local LightLabel = MainTab:CreateLabel("⚪ مطفي")
+
+-- حماية ثانية بسيطة بدون ما تخرب
+pcall(function()
+    local lp = LocalPlayer
+    if lp and lp.Kick then
+        -- لا نستخدم hookfunction لان يخرب على الجوال
+    end
+end)
+
+local ParryRemote = nil
+pcall(function()
+    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
+        if v:IsA("RemoteEvent") and v.Name:lower():find("parry") then
+            ParryRemote = v
+            break
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not Enabled then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local ball = nil
+    local bf = workspace:FindFirstChild("Balls")
+    if bf then ball = bf:FindFirstChildOfClass("Part") or bf:FindFirstChildOfClass("MeshPart") end
+    if not ball then ball = workspace:FindFirstChild("Ball") end
+    if not ball then return end
+
+    local vel = ball.AssemblyLinearVelocity
+    local speed = vel.Magnitude
+    local dist = (ball.Position - hrp.Position).Magnitude
+
+    if hasParried then
+        if dist > 40 and tick() - lastParryTime > 0.6 then
+            hasParried = false
+            StatusLabel:Set("الحالة: جاهز")
+            LightLabel:Set("⚪ مطفي")
+        else
+            return
+        end
+    end
+
+    if speed < 5 then return end
+    if dist > 50 then return end
+
+    local toPlayer = (hrp.Position - ball.Position).Unit
+    if vel.Unit:Dot(toPlayer) < 0.1 then return end
+
+    if dist < 30 then
+        LightLabel:Set("🔴 احمر - قريبة")
+    end
+
+    local need = 30
+    if speed > 120 then need = 46
+    elseif speed > 80 then need = 38
+    elseif speed > 50 then need = 32 end
+
+    local future = ball.Position + (vel * 0.33)
+    if dist < need or (future - hrp.Position).Magnitude < 18 then
+        hasParried = true
+        lastParryTime = tick()
+        -- نستخدم الزر بس - اضمن شي على الجوال
+        pcall(function()
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.F, false, game)
+            task.wait(0.02)
+            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.F, false, game)
+        end)
+        -- واذا لكينا ريموت ندزه هم مرة وحدة بس
+        if ParryRemote then
+            pcall(function() ParryRemote:FireServer() end)
+        end
+        StatusLabel:Set("الحالة: صدتها")
+    end
+end)
+
+Rayfield:Notify({Title = "اشتغل حبيبي", Content = "هسه يشتغل على جوالك", Duration = 4})
